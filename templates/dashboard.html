@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ Phishing Copilot Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#1e1e2e',
+                        surface: '#252537',
+                        accent: '#f38ba8',
+                        text: '#cdd6f4',
+                        success: '#a6e3a1'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #1e1e2e; color: #cdd6f4; font-family: 'Segoe UI', sans-serif; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-surface h-20 flex items-center justify-between px-8 shadow-lg z-10">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl">🛡️</span>
+            <h1 class="text-2xl font-bold tracking-wide">Phishing Copilot</h1>
+        </div>
+        <!-- STATUS INDICATOR (Updated with IDs) -->
+        <div class="flex items-center gap-2">
+            <div id="status-dot" class="h-3 w-3 rounded-full bg-gray-500"></div>
+            <span id="status-text" class="text-gray-500 font-bold text-sm">CONNECTING...</span>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-8 overflow-y-auto">
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-surface p-6 rounded-xl shadow-md border border-gray-800 hover:border-accent transition duration-300">
+                <h3 class="text-gray-400 text-sm uppercase tracking-wider">Total Blocked</h3>
+                <p id="stat-total" class="text-5xl font-bold text-accent mt-2">0</p>
+            </div>
+            <div class="bg-surface p-6 rounded-xl shadow-md border border-gray-800 hover:border-accent transition duration-300">
+                <h3 class="text-gray-400 text-sm uppercase tracking-wider">This Week</h3>
+                <p id="stat-week" class="text-5xl font-bold text-blue-400 mt-2">0</p>
+            </div>
+            <div class="bg-surface p-6 rounded-xl shadow-md border border-gray-800 hover:border-accent transition duration-300">
+                <h3 class="text-gray-400 text-sm uppercase tracking-wider">Last Risk Score</h3>
+                <p id="stat-score" class="text-5xl font-bold text-yellow-400 mt-2">N/A</p>
+            </div>
+        </div>
+
+        <!-- Logs Section -->
+        <div class="bg-surface rounded-xl shadow-lg border border-gray-800 flex flex-col h-[60vh]">
+            <div class="p-6 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-xl font-semibold">Recent Detections</h2>
+                <span class="text-xs text-gray-500">Auto-refreshing every 3s</span>
+            </div>
+
+            <div class="overflow-auto flex-1 p-4">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="text-gray-400 border-b border-gray-700 text-sm uppercase">
+                            <th class="p-4 font-medium w-48">Date</th>
+                            <th class="p-4 font-medium w-32 text-center">Risk Score</th>
+                            <th class="p-4 font-medium">Subject</th>
+                            <th class="p-4 font-medium w-24">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body" class="text-sm divide-y divide-gray-700">
+                        <!-- Rows will be inserted here by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Detail Modal -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
+        <div class="bg-surface w-full max-w-2xl rounded-xl shadow-2xl border border-gray-700 transform transition-all scale-95 p-8 relative">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">&times;</button>
+
+            <h2 id="modal-subject" class="text-2xl font-bold text-accent mb-1 break-words">Subject Line</h2>
+            <p id="modal-sender" class="text-gray-400 text-sm mb-6">From: sender@example.com</p>
+
+            <div class="space-y-4">
+                <div class="bg-bg p-4 rounded-lg border-l-4 border-yellow-500">
+                    <h4 class="text-yellow-500 font-bold text-xs uppercase mb-1">Why was this blocked?</h4>
+                    <p id="modal-explanation" class="text-gray-300 leading-relaxed">Explanation goes here...</p>
+                </div>
+                <div class="bg-bg p-4 rounded-lg border-l-4 border-green-500">
+                    <h4 class="text-green-500 font-bold text-xs uppercase mb-1">AI Recommendation</h4>
+                    <p id="modal-recommendation" class="text-gray-300 leading-relaxed">Recommendation goes here...</p>
+                </div>
+                <div class="mt-4">
+                    <h4 class="text-gray-500 font-bold text-xs uppercase mb-2">Email Body Snippet</h4>
+                    <div class="bg-black p-3 rounded text-gray-400 font-mono text-xs overflow-x-auto">
+                        <p id="modal-body">Body content...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLogs = [];
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+
+                // --- NEW: Update Status Indicator ---
+                const statusText = document.getElementById('status-text');
+                const statusDot = document.getElementById('status-dot');
+
+                if (data.status === 'active') {
+                    statusText.innerText = "SYSTEM ACTIVE";
+                    statusText.className = "text-success font-bold text-sm";
+                    statusDot.className = "h-3 w-3 rounded-full bg-success animate-pulse";
+                } else {
+                    statusText.innerText = "SYSTEM INACTIVE";
+                    statusText.className = "text-accent font-bold text-sm"; // Pink/Red
+                    statusDot.className = "h-3 w-3 rounded-full bg-accent"; // No pulse
+                }
+
+                // Update Stats
+                document.getElementById('stat-total').innerText = data.total;
+                document.getElementById('stat-week').innerText = data.week;
+                document.getElementById('stat-score').innerText = data.last_score || "0";
+
+                // Update Table
+                renderTable(data.logs);
+                currentLogs = data.logs;
+            } catch (error) {
+                console.error("Error fetching stats:", error);
+                // Handle Flask Server Offline
+                document.getElementById('status-text').innerText = "SERVER DISCONNECTED";
+                document.getElementById('status-text').className = "text-gray-500 font-bold text-sm";
+                document.getElementById('status-dot').className = "h-3 w-3 rounded-full bg-gray-500";
+            }
+        }
+
+        function renderTable(logs) {
+            const tbody = document.getElementById('logs-body');
+            tbody.innerHTML = '';
+
+            if (logs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-gray-500">No threats detected yet.</td></tr>`;
+                return;
+            }
+
+            logs.forEach((log, index) => {
+                let scoreColor = 'text-green-400';
+                if(log.score > 50) scoreColor = 'text-yellow-400';
+                if(log.score > 70) scoreColor = 'text-accent';
+
+                const row = `
+                    <tr class="hover:bg-gray-800 transition duration-150 group cursor-pointer" onclick="openModal(${index})">
+                        <td class="p-4 text-gray-400 whitespace-nowrap">${log.date_str}</td>
+                        <td class="p-4 text-center font-bold ${scoreColor}">${log.score}</td>
+                        <td class="p-4 text-white font-medium truncate max-w-xs">${log.subject}</td>
+                        <td class="p-4">
+                            <button class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded-full transition">View</button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function openModal(index) {
+            const log = currentLogs[index];
+            document.getElementById('modal-subject').innerText = log.subject;
+            document.getElementById('modal-sender').innerText = "From: " + (log.sender || "Unknown");
+            document.getElementById('modal-explanation').innerText = log.explanation;
+            document.getElementById('modal-recommendation').innerText = log.recommendation;
+            document.getElementById('modal-body').innerText = log.body_snippet || "No content available.";
+
+            const modal = document.getElementById('modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        setInterval(fetchData, 3000);
+        fetchData();
+    </script>
+</body>
+</html>
