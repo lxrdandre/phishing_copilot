@@ -49,14 +49,9 @@ Dark Mode UI: Built with Tailwind CSS.
 
 1. Clone the repository
 
-git clone [https://github.com/yourusername/phishing-copilot.git](https://github.com/yourusername/phishing-copilot.git)
-cd phishing-copilot
-
-
 2. Install Dependencies
 
-pip install openai flask python-dotenv tk
-
+pip install -r requirements.txt
 
 3. Environment Configuration
 
