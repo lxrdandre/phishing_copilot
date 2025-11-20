@@ -57,8 +57,8 @@ pip install -r requirements.txt
 
 Create a .env file in the root directory and add your credentials:
 
-# .env file
-OPENAI_API_KEY="sk-proj-..."
+.env file
+OPENAI_API_KEY="..."
 IMAP_PASS="your-gmail-app-password"
 
 
