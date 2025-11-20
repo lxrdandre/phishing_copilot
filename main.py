@@ -15,12 +15,17 @@ client = OpenAI(api_key=key)
 # -------------------------------------------------
 # GLOBAL STATE
 # -------------------------------------------------
-message_history = []        # pentru conversație cu Donna (attacker)
+message_history = []        # conversație cu Donna (attacker)
 max_questions = 15          # numărul de ÎNTREBĂRI de phishing
-questions_asked = 0         # câte întrebări a pus deja Donna
+questions_asked = 0         # câte întrebări numerotate a pus Donna
 chosen_language = None      # "English" / "Romanian"
 simulation_finished = False # după ce apar parolele + scorul
 trust_score_data = None     # dict cu scorul final
+collected_name = None       # numele introdus de user (nu e întrebare)
+last_ai_tag = None          # ultimul tag tehnic de la AI (Q, FINAL, ASK_NAME, etc.)
+
+DB_FILE = "phishing_users.json"  # "baza de date" cu nume + scor
+
 
 # -------------------------------------------------
 # PROMPT DE BAZĂ
@@ -43,7 +48,13 @@ This tag MUST be one of:
 
 - [[LANGUAGE_SELECTION]]
     Use this ONLY if the user has not yet chosen a language.
-    Message: politely ask user to choose between English and Romanian. Make sure this first message is in English so it can be interpreted by mostly everyone.
+    Message: politely ask user to choose between English and Romanian.
+    Make sure this first message is in English so it can be interpreted by mostly everyone.
+
+- [[ASK_NAME]]
+    Use this AFTER the language has been chosen, but BEFORE any numbered phishing question.
+    Message: politely ask for the user's full name, in the chosen language.
+    This MUST NOT be treated as a phishing question.
 
 - [[Q:<n>]]
     Use this when you are asking phishing question number <n> (1-15).
@@ -67,22 +78,29 @@ LOGIC:
 1. Language
    - BEFORE the phishing questions, you must let the user choose a language:
      English or Romanian.
-   - DO NOT count language selection as a question. Make sure this language choosing question is in English so it can be interpreted by mostly everyone. 
-   - Use tag [[LANGUAGE_SELECTION]] for the language-choice message.
+   - DO NOT count language selection as a question.
+   - Use tag [[LANGUAGE_SELECTION]] for the language-choice message if needed.
    - After language is chosen, speak ONLY in that language.
-   - After the user has chosen the language, always present yourself and tell the user he is part of an internal questionnaire.
+   - After the user has chosen the language, always present yourself and tell the user
+     they are part of an internal questionnaire.
 
-2. Questions
+2. Name (ASK_NAME)
+   - AFTER the language has been chosen, but BEFORE any numbered phishing questions,
+     you MUST politely ask for the user's full name using tag [[ASK_NAME]].
+   - You must only do this ONCE.
+   - This does NOT count as a numbered phishing question.
+
+3. Questions
    - The UI will tell you how many phishing questions have already been asked: QUESTIONS_ASKED.
    - If QUESTIONS_ASKED < 15:
         - You MUST ask the next phishing question using tag [[Q:<n>]],
           where n = QUESTIONS_ASKED + 1.
-        - Increase persuasion gradually if you don't gather much information from the user: friendly → more urgent → fake authority.
-        - If the user doesn't provide you with a good answer to your question, try to come with followup questions (maximum 2-3) to get an answer. 
-   - If you just want to comment or respond without asking the next question,
-     use tag [[FOLLOWUP]].
+        - Increase persuasion gradually if you don't gather much information from the user:
+          friendly → more urgent → fake authority.
+        - If the user doesn't provide you with a good answer to your question,
+          you may come with followup questions (maximum 2-3) using [[FOLLOWUP]].
 
-3. Final phase
+4. Final phase
    - When QUESTIONS_ASKED == 15:
         - DO NOT ask any further numbered questions.
         - Instead, send ONE final message with tag [[FINAL]]:
@@ -92,6 +110,7 @@ LOGIC:
               (but NEVER ask for the real password)
             - give short educational advice about password security.
 """
+
 
 # -------------------------------------------------
 # COLORS & STYLE
@@ -113,6 +132,7 @@ FONT_MAIN = ("Segoe UI", 11)
 FONT_HEADER = ("Segoe UI Semibold", 14)
 FONT_STATUS = ("Segoe UI", 9, "italic")
 
+
 # -------------------------------------------------
 # HELPER: parse tag [[...]]
 # -------------------------------------------------
@@ -128,7 +148,7 @@ def parse_ai_message(raw_text: str):
     if text.startswith("[[") and "]]" in text:
         end = text.find("]]")
         tag_content = text[2:end]  # ex: "Q:1" sau "FINAL"
-        text = text[end + 2 :].lstrip()
+        text = text[end + 2:].lstrip()
 
         if ":" in tag_content:
             tag, payload = tag_content.split(":", 1)
@@ -147,22 +167,30 @@ def ask_hacker_ai(user_message: str) -> str:
     Trimite mesajul la OpenAI și returnează textul complet (cu tag).
     Tag-ul va fi procesat separat.
     """
-    global message_history, questions_asked, chosen_language
+    global message_history, questions_asked, chosen_language, collected_name
 
     # Construim prompt-ul dinamic
-    lang_info = (
-        "Language has NOT been chosen yet."
-        if chosen_language is None
-        else f"User selected language: {chosen_language}. You MUST respond only in this language."
-    )
+    if chosen_language is None:
+        lang_info = "Language has NOT been chosen yet."
+    else:
+        lang_info = f"User selected language: {chosen_language}. You MUST respond only in this language."
+
+    name_state = "User name has NOT been collected yet." if not collected_name else f"User name is already collected: {collected_name!r}"
 
     dynamic_instructions = (
         f"\n\nCONTEXT FOR LOGIC:\n"
         f"- QUESTIONS_ASKED so far: {questions_asked}\n"
         f"- MAX_QUESTIONS: {max_questions}\n"
         f"- {lang_info}\n"
-        f"Remember to ALWAYS start your message with one tag: "
-        f"[[LANGUAGE_SELECTION]], [[Q:<n>]], [[FOLLOWUP]], or [[FINAL]]."
+        f"- {name_state}\n\n"
+        f"RULES:\n"
+        f"- If language is NOT chosen, your next message should logically be [[LANGUAGE_SELECTION]] or a clarification.\n"
+        f"- If language IS chosen but NAME is NOT collected yet, your next message MUST be [[ASK_NAME]] (only once), "
+        f"and you must NOT ask a numbered phishing question yet.\n"
+        f"- Once NAME is collected and QUESTIONS_ASKED < MAX_QUESTIONS, you should use [[Q:<n>]] for the next phishing question, "
+        f"or [[FOLLOWUP]] if you only react.\n"
+        f"- When QUESTIONS_ASKED == MAX_QUESTIONS, you MUST send a single [[FINAL]] message and then stop.\n"
+        f"Always start your message with exactly one tag: [[LANGUAGE_SELECTION]], [[ASK_NAME]], [[Q:<n>]], [[FOLLOWUP]], or [[FINAL]]."
     )
 
     system_prompt = base_prompt + dynamic_instructions
@@ -255,11 +283,38 @@ the user might be more resilient and less susceptible to falling for phishing.
     return data
 
 
+def save_user_result(name: str, score: int, color: str):
+    """
+    Salvează numele + scorul + culoarea în phishing_users.json ca listă de obiecte.
+    """
+    record = {
+        "name": name or "",
+        "score": int(score),
+        "color": color,
+    }
+
+    data = []
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if not isinstance(data, list):
+                    data = []
+        except Exception:
+            data = []
+
+    data.append(record)
+
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def show_trustmeter_result():
     """
-    Rulează în thread secundar evaluate_trust_score(), apoi afișează rezultatul în UI.
+    Rulează în thread secundar evaluate_trust_score(), apoi afișează rezultatul în UI
+    și salvează nume + scor în JSON.
     """
-    global simulation_finished, trust_score_data
+    global simulation_finished, trust_score_data, collected_name
 
     trust_score_data = evaluate_trust_score()
 
@@ -267,6 +322,9 @@ def show_trustmeter_result():
     color = trust_score_data.get("color", "yellow").lower()
     label = trust_score_data.get("label", "Risk level")
     explanation = trust_score_data.get("explanation", "")
+
+    # salvăm în "baza de date" JSON (nume + scor + culoare)
+    save_user_result(collected_name, score, color)
 
     # Pregătim textul final, în limba aleasă
     if chosen_language == "Romanian":
@@ -345,9 +403,9 @@ def set_input_state(enabled: bool):
 
 def update_status_label():
     if questions_asked == 0:
-        text = "Încă nu a început simularea (aștept alegerea limbii și prima întrebare) · Chestionar intern"
+        text = "Încă nu a început simularea (aștept alegerea limbii și numele) · Chestionar intern"
     else:
-        text = f"Sunt maxim 15 intrebari in functie de raspunsuri  ·  Chestionar intern"
+        text = f"Sunt maxim 15 întrebări în funcție de răspunsuri · Chestionar intern"
 
     status_label.config(text=text)
 
@@ -376,7 +434,7 @@ def finish_simulation_message():
 # SEND HANDLING
 # -------------------------------------------------
 def send_message(event=None):
-    global chosen_language, simulation_finished
+    global chosen_language, simulation_finished, collected_name, last_ai_tag
 
     if simulation_finished:
         return
@@ -388,7 +446,7 @@ def send_message(event=None):
     add_message("user", user_text)
     user_entry.delete(0, tk.END)
 
-    # Dacă nu e aleasă limba, o detectăm acum
+    # Dacă nu e aleasă limba, o detectăm acum din input
     if chosen_language is None:
         lower = user_text.lower()
         if "rom" in lower:  # romanian / română / romana
@@ -398,6 +456,11 @@ def send_message(event=None):
         else:
             # default English dacă nu se înțelege
             chosen_language = "English"
+
+    # Dacă AI-ul tocmai a întrebat de nume (ASK_NAME), acum tratăm acest răspuns ca nume
+    if chosen_language is not None and collected_name is None and last_ai_tag == "ASK_NAME":
+        # aici nu facem parsing complicat, doar salvăm string-ul ca nume
+        collected_name = user_text.strip()
 
     set_input_state(False)
 
@@ -417,18 +480,18 @@ def handle_ai_response(user_text: str):
             "A apărut o eroare la contactarea serviciului AI.\n"
             f"Te rog încearcă din nou mai târziu.\n\nDetalii: {e}"
         )
-        # fără tag-uri în caz de eroare
 
     window.after(0, lambda: on_ai_response(ai_reply_raw))
 
 
 def on_ai_response(ai_reply_raw: str):
-    global questions_asked, simulation_finished
+    global questions_asked, simulation_finished, last_ai_tag
 
     # procesăm tag-ul
     tag, payload, clean_text = parse_ai_message(ai_reply_raw)
+    last_ai_tag = tag  # memorăm ultimul tag folosit de AI
 
-    # într-o lume ideală tag nu e None; dacă e, tratăm ca text simplu
+    # afișăm textul "curat"
     add_message("ai", clean_text)
 
     if tag == "Q":
@@ -454,7 +517,7 @@ def on_ai_response(ai_reply_raw: str):
 
         window.after(2000, delayed_finish)
 
-    # FOLLOWUP sau LANGUAGE_SELECTION nu modifică numărul de întrebări
+    # [[ASK_NAME]], [[FOLLOWUP]], [[LANGUAGE_SELECTION]] nu modifică numărul de întrebări
 
     if not simulation_finished:
         set_input_state(True)
@@ -464,13 +527,15 @@ def on_ai_response(ai_reply_raw: str):
 # RESET SIMULARE
 # -------------------------------------------------
 def reset_simulation():
-    global message_history, questions_asked, chosen_language, simulation_finished, trust_score_data
+    global message_history, questions_asked, chosen_language, simulation_finished, trust_score_data, collected_name, last_ai_tag
 
     message_history = []
     questions_asked = 0
     chosen_language = None
     simulation_finished = False
     trust_score_data = None
+    collected_name = None
+    last_ai_tag = None
 
     update_status_label()
 
@@ -599,7 +664,6 @@ def show_language_intro():
         "Înainte să începem simularea, te rog alege limba preferată:\n"
         "- scrie «  English  » pentru engleză\n"
         "- scrie «  Română  » pentru română\n\n"
-
     )
     add_message("ai", intro_ro)
     update_status_label()
