@@ -89,20 +89,6 @@ Open a new terminal window and run the web server.
 python app.py
 
 
-📂 Project Structure
-
-phishing-copilot/
-├── .env                       # API Keys (Not in Git)
-├── risk_score_donna.py        # The HR Simulation App
-├── phishing_copilot_agent.py  # The Background Email Service
-├── app.py                     # Flask Web Server
-├── phishing_users.json        # Stores User Risk Score
-├── phishing_logs.json         # Stores blocked email logs
-├── heartbeat.txt              # System status timestamp
-└── templates/
-    └── dashboard.html         # Dashboard UI
-
-
 ⚠️ Disclaimer
 
 Educational Use Only.
