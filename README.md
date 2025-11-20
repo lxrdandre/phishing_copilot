@@ -1,4 +1,4 @@
-🛡️ Phishing Copilot & Social Engineering Trainer
+🛡️ Phishing Copilot & Social Engineering Trainer - made by me and @davidd234 at a hackathon
 
 A comprehensive cybersecurity suite designed to assess user vulnerability via simulation and protect their inbox using an AI-powered monitoring agent.
 
@@ -35,7 +35,7 @@ Weekly Reports: Sends a summary email every 7 days with statistics.
 Heartbeat System: Updates a status file to let the dashboard know the service is alive.
 
 📊 Web Dashboard (app.py)
-<img width="1280" height="832" alt="image" src="https://github.com/user-attachments/assets/980f369f-0752-4a5b-a33b-51dadf536a3d" />
+<img width="1136" height="601" alt="Screenshot 2025-11-20 at 23 42 53" src="https://github.com/user-attachments/assets/b0c2d243-7c3b-402a-b858-65ebd79a8597" />
 
 Live Monitoring: Shows total threats blocked and weekly stats.
 
@@ -93,8 +93,6 @@ Open a new terminal window and run the web server.
 
 python app.py
 
-
-Open your browser to: https://www.google.com/search?q=http://127.0.0.1:5000
 
 📂 Project Structure
 
