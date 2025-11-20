@@ -1,4 +1,4 @@
-🛡️ Phishing Copilot & Social Engineering Trainer - made by me and @davidd234 at a hackathon
+🛡️ Phishing Copilot & Social Engineering Trainer - made by me and my friend [David](https://github.com/davidd234) at a hackathon
 
 A comprehensive cybersecurity suite designed to assess user vulnerability via simulation and protect their inbox using an AI-powered monitoring agent.
 
