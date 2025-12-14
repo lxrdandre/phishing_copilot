@@ -1,8 +1,8 @@
-🛡️ Phishing Copilot & Social Engineering Trainer - made by me and my friend [David](https://github.com/davidd234) at a hackathon
+  Phishing Copilot & Social Engineering Trainer - made by me and my friend [David](https://github.com/davidd234) at a hackathon
 
 A comprehensive cybersecurity suite designed to assess user vulnerability via simulation and protect their inbox using an AI-powered monitoring agent.
 
-📂 Project Overview
+  Project Overview
 
 This solution consists of three integrated components:
 
@@ -12,7 +12,7 @@ Phishing Copilot Agent (Protection): A background service that monitors an IMAP 
 
 Live Dashboard (Monitoring): A Flask-based web interface to visualize blocked threats, view logs, and check system status in real-time.
 
-🚀 Features
+  Features
 
 🎭 Social Engineering Simulator (risk_score_donna.py)
 
@@ -34,7 +34,7 @@ Weekly Reports: Sends a summary email every 7 days with statistics.
 
 Heartbeat System: Updates a status file to let the dashboard know the service is alive.
 
-📊 Web Dashboard (app.py)
+  Web Dashboard (app.py)
 <img width="1136" height="601" alt="Screenshot 2025-11-20 at 23 42 53" src="https://github.com/user-attachments/assets/b0c2d243-7c3b-402a-b858-65ebd79a8597" />
 
 Live Monitoring: Shows total threats blocked and weekly stats.
@@ -45,7 +45,7 @@ Detailed Logs: View subject lines, risk scores, and AI explanations for every bl
 
 Dark Mode UI: Built with Tailwind CSS.
 
-🛠️ Installation
+  Installation
 
 1. Clone the repository
 
@@ -64,7 +64,7 @@ IMAP_PASS="your-gmail-app-password"
 
 Note: For Gmail, IMAP_PASS is your App Password, not your login password.
 
-🖥️ Usage Guide
+  Usage Guide
 
 Step 1: Run the Assessment (Optional)
 
