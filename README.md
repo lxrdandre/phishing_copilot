@@ -14,7 +14,7 @@ Live Dashboard (Monitoring): A Flask-based web interface to visualize blocked th
 
   Features
 
-🎭 Social Engineering Simulator (risk_score_donna.py)
+  Social Engineering Simulator (risk_score_donna.py)
 
 Interactive Chat: Real-time conversation with an AI attacker using Tkinter.
 
@@ -24,7 +24,7 @@ TrustMeter: A secondary AI model analyzes the chat to calculate a final vulnerab
 
 Educational Feedback: Provides examples of weak passwords based on revealed data at the end.
 
-📡 Phishing Copilot Agent (phishing_copilot_agent.py)
+ Phishing Copilot Agent (phishing_copilot_agent.py)
 
 Adaptive Security: Uses the score from the Simulator to set the blocking threshold (High Risk User = Stricter Filtering).
 
@@ -89,7 +89,7 @@ Open a new terminal window and run the web server.
 python app.py
 
 
-⚠️ Disclaimer
+!!!  Disclaimer
 
 Educational Use Only.
 This tool is designed for internal security training and personal inbox protection.
@@ -100,7 +100,8 @@ Ensure you have authorization to monitor the email inbox provided in the configu
 
 The developers are not responsible for any misuse of this software.
 
-🤝 Contributing
+
+
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
